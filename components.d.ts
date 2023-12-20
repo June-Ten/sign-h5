@@ -7,6 +7,7 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    Drag: typeof import('./src/components/Drag.vue')['default']
     HelloWorld: typeof import('./src/components/HelloWorld.vue')['default']
     VanPopup: typeof import('vant/es')['Popup']
   }

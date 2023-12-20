@@ -23,7 +23,7 @@
             v-for="item in 9"
             @click="addSeal(item)"
           >
-            <img src="./seal.png" alt="" />
+            <img src="/public/vite.svg" alt="" />
           </div>
         </div>
       </div>
@@ -36,6 +36,7 @@
 import { ref, onMounted, reactive } from 'vue'
 
 import Pdfh5 from 'pdfh5'
+import 'vue-draggable-resizable-gorkys/dist/VueDraggableResizable.css'
 
 
 const showPopup = ref<boolean>(false)
@@ -62,6 +63,13 @@ function show() {
 
 const sealList = reactive<HTMLElement[]>([])
 
+type Position = {
+  x: number
+  y: number
+  id: string
+}
+const dragPositionList = reactive<Position[]>([])
+
 function addSeal(item: any) {
   showPopup.value = false
   generateSeal(getWindowCenterPosition())
@@ -83,21 +91,34 @@ function generateSeal({ x, y }: { x: number; y: number }): void {
 
   let seal = document.createElement('div')
   seal.id = `seal-${sealList.length + 1}`
+  seal.draggable = true
   seal.style.position = 'absolute'
   seal.style.left = `${x}px`
   seal.style.top = `${container.scrollTop + y}px`
   seal.style.width = '100px'
   seal.style.height = '100px'
   seal.style.backgroundColor = 'red'
+  seal.style.zIndex = '999'
 
   container.appendChild(seal)
   sealList.push(seal)
+  dragPositionList.push({
+    x,
+    y,
+    id: seal.id
+  })
 }
 
 
 </script>
 
 <style scoped lang="less">
+* {
+  box-sizing: border-box;
+}
+::-webkit-scrollbar {
+  display: none;
+}
 .page-container {
   width: 100%;
   height: 100%;
@@ -115,6 +136,7 @@ function generateSeal({ x, y }: { x: number; y: number }): void {
     width: 100%;
     height: 50px;
     background-color: #fff;
+    z-index: 9999;
     .anywhere-btn {
       width: 100%;
       height: 100%;
