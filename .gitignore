@@ -1,0 +1,19 @@
+node_modules/
+
+# 编译产物
+/dist/
+
+# 本地调试产生的日志和文件
+/.idea/
+/.vscode/
+
+# 测试产生的临时文件
+/coverage/
+
+# 依赖关系文件
+package-lock.json
+yarn.lock
+
+# 运行时数据
+npm-debug.log*
+yarn-error.log*
