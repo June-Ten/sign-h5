@@ -3,10 +3,24 @@
 
     <div class="pdfBox" ref="pdfBox"></div>
     
-    <div class="bottom-btn-box">
-      <div class="anywhere-btn" @click="show">
+    <div class="bottom-btn-box"  v-if="!showPopup">
+
+      <div
+        class="anywhere-btn"
+        @click="show"
+        v-if="!showPopup && dragPositionList.length === 0"
+      >
         任意位置盖章
       </div>
+
+      <div
+        class="anywhere-btn"
+        @click="submitSign"
+        v-if="!showPopup && dragPositionList.length > 0"
+      >
+        提交签署
+      </div>
+
     </div>
 
     <div
@@ -27,10 +41,11 @@
         <div class="content-box">
           <div
             class="seal-item"
-            v-for="item in 9"
+            v-for="item in sealList"
+            :key="item.id"
             @click="addSeal(item, 'P')"
           >
-            <img src="/public/seal.png" alt="" class="person"/>
+            <img :src="`data:image/png;base64,${item.sealImageBase64}`" alt="" class="person"/>
           </div>
         </div>
       </div>
@@ -52,7 +67,7 @@
           <div class="drag-seal-item">
             <img
               v-if="item.type === 'P'"
-              src="/public/seal.png"
+              :src="`data:image/png;base64,${item.sealImg}`"
               alt="个人印章"
               :style="`width: ${item.initW}px; height: ${item.initH}px`"
             >
@@ -65,7 +80,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import Pdfh5 from 'pdfh5'
 
@@ -78,39 +93,58 @@ const pdfBox = ref<HTMLElement>()
 
 const totalPage = ref<number>(0)
 
+const route = useRoute()
+const router = useRouter()
+
 onMounted(async () => {
   const script = document.createElement('script')
   script.setAttribute('src', './uniBridge.js')
   document.head.appendChild(script)
 
   document.addEventListener('UniAppJSBridgeReady', () => {
-    postMsgToUniApp('postMessage')
+    postMsgToUniApp({ result: 'ok' })
+    // uni.navigateBack()
   })
 
-
-  const route = useRoute()
-  console.log('route', route.query.contractId)
-  setAuthToken('6348c1b7-2e02-4682-a31a-d486305a6eeb')
-  const res: any = await request.get(`${ApiPaths.GetContract}/${route.query.contractId}`)
-
-  let pdfh5 = new Pdfh5(pdfBox.value, {
-    // pdfurl: "./123.pdf",
-    data: atob(res.urlBase64),
-    backTop: false,
-    scale: 1.0,
-    zoomEnable: false
-  })
-
-  pdfh5.on("complete", function (status: string, msg: string, time: string) {
-		console.log("状态：" + status + "，信息：" + msg + "，耗时：" + time + "毫秒，总页数：", pdfh5)
-    totalPage.value = pdfh5.totalNum
-
-    getFileIntrinsicSize()
-    getRenderSize()
-    getRatio()
-    getWrapperMargin()
-  })
+  getUrlQuery()
+  return
+ 
 })
+
+const sealList = reactive<any>([])
+
+async function getUrlQuery() {
+  await router.isReady()
+
+  setAuthToken(route.query.token)
+
+  try{
+    const pdfRes: any = await request.get(`${ApiPaths.GetContract}/${route.query.contractId}`)
+  
+    let pdfh5 = new Pdfh5(pdfBox.value, {
+      // pdfurl: "./123.pdf",
+      data: atob(pdfRes.urlBase64),
+      backTop: false,
+      scale: 1.0,
+      zoomEnable: false
+    })
+  
+    pdfh5.on("complete", function (status: string, msg: string, time: string) {
+      console.log("状态：" + status + "，信息：" + msg + "，耗时：" + time + "毫秒，总页数：", pdfh5)
+      totalPage.value = pdfh5.totalNum
+  
+      getFileIntrinsicSize()
+      getRenderSize()
+      getRatio()
+      getWrapperMargin()
+    })
+  
+    const sealListRes: any = await request.get(ApiPaths.SealList)
+    sealList.splice(0, sealList.length, ...sealListRes)
+  } catch (e) {
+    console.log('onMounted-error', e)
+  }
+}
 
 const renderSize = reactive({
   width: 0,
@@ -175,6 +209,7 @@ type Position = {
   initW: number
   initH: number
   type: string
+  sealImg: string
 }
 const dragPositionList = reactive<Position[]>([])
 
@@ -200,7 +235,7 @@ function onDragEnd(e: any, item: Position) {
 
 function addSeal(item: any, type: string) {
   showPopup.value = false
-  generateSeal(getWindowCenterPosition(), type)
+  generateSeal(getWindowCenterPosition(), type, item.sealImageBase64)
   console.log('addSeal', item)
 }
 
@@ -214,7 +249,7 @@ function getWindowCenterPosition() {
   return centerPosition
 }
 
-function generateSeal({ x, y }: { x: number; y: number; }, type: string): void {
+function generateSeal({ x, y }: { x: number; y: number; }, type: string, sealImg: string): void {
   const container = document.querySelector('.viewerContainer')!
 
   if (type === 'P') {
@@ -224,12 +259,13 @@ function generateSeal({ x, y }: { x: number; y: number; }, type: string): void {
       id: `seal-${dragPositionList.length + 1}`,
       initW: 50 * ratio.wRatio,
       initH: 50 * ratio.hRatio,
-      type: 'P'
+      type: 'P',
+      sealImg
     })
   }
 }
 
-async function getSealPositions() {
+function getSealPositions() {
   const eachPageHeight = document.querySelector('.pageContainer')!.clientHeight
   const resultList: any[] = []
   dragPositionList.forEach(item => {
@@ -243,7 +279,8 @@ async function getSealPositions() {
         Y: getRawY(item, currentPage, eachPageHeight)
       })
   })
-  console.log('resultList', resultList[0])
+  console.log('resultList', resultList)
+  return resultList[0]
 }
 
 function getRawY(item: Position, currentPage: number, eachPageHeight: number) {
@@ -261,6 +298,22 @@ function postMsgToUniApp(obj: any) {
       data: obj
     }
   })
+}
+
+async function submitSign() {
+  const sealInfo = getSealPositions()
+
+  const res = await request.post(ApiPaths.SignContract, {
+    contractId: route.query.contractId,
+    sealId: sealList.at(Number(sealInfo.id.split('seal-')[1]) - 1).id,
+    type: sealInfo.type === 'P' ? 0 : 1,
+    pageNum: sealInfo.page,
+    x: sealInfo.X,
+    y: sealInfo.Y,
+    width: 50,
+    height: 50
+  })
+  console.log('res', res)
 }
 
 </script>
@@ -288,16 +341,20 @@ function postMsgToUniApp(obj: any) {
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 50px;
-    background-color: #fff;
+    height: 60px;
+    background-color: #fbfcfe;
     z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     .anywhere-btn {
-      width: 100%;
-      height: 100%;
-      line-height: 50px;
+      width: 60%;
+      height: 40px;
+      line-height: 40px;
       text-align: center;
       color: #fff;
       background-color: #409eff;
+      border-radius: 10px;
     }
   }
   .van-popup-body {
@@ -317,6 +374,7 @@ function postMsgToUniApp(obj: any) {
       display: flex;
       justify-content: space-between;
       flex-wrap: wrap;
+      padding-top: 15px;
       .seal-item {
         width: 48%;
         margin-bottom: 10px;
