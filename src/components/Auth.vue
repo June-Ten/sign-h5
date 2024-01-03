@@ -83,7 +83,7 @@ const handleAgree = () => {
         height: 0;
         border-left: 20px solid transparent;
         border-bottom: 20px solid transparent;
-        border-top: 20px solid red;
+        border-top: 20px solid #409eff;
         position: absolute;
         right: 0;
         top: 0;
@@ -97,7 +97,7 @@ const handleAgree = () => {
       }
     }
     .active-method {
-      border: 1px solid  #d23529;
+      border: 1px solid  #409eff;
       background-color: #fdfbfc;
     }
   }
@@ -115,7 +115,7 @@ const handleAgree = () => {
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #d23529;
+    background-color: #409eff;
     color: white;
     border-radius: 5px;
   }

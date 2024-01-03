@@ -98,7 +98,7 @@ import request from './utils/request'
 import { setAuthToken } from './utils/auth'
 import { ApiPaths } from './api/endPoints'
 
-const current = ref<number>(0)
+const current = ref<number>(1)
 
 const pdfBox = ref<HTMLElement>()
 
