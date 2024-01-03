@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container" v-if="current === 0">
 
     <div class="pdfBox" ref="pdfBox"></div>
     
@@ -76,6 +76,14 @@
     </Teleport>
 
   </div>
+
+  <div class="page-container" v-if="current === 1">
+    <Auth  @change-current="current = 2"/>
+  </div>
+
+  <div class="page-container" v-if="current === 2">
+    <Code  @change-current="2" />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -84,10 +92,13 @@ import { useRoute, useRouter } from 'vue-router'
 
 import Pdfh5 from 'pdfh5'
 
+import Auth from './components/Auth.vue'
+import Code from './components/Code.vue'
 import request from './utils/request'
 import { setAuthToken } from './utils/auth'
 import { ApiPaths } from './api/endPoints'
 
+const current = ref<number>(0)
 
 const pdfBox = ref<HTMLElement>()
 
@@ -116,7 +127,7 @@ const sealList = reactive<any>([])
 async function getUrlQuery() {
   await router.isReady()
 
-  setAuthToken(route.query.token)
+  setAuthToken(route.query.token as string)
 
   try{
     const pdfRes: any = await request.get(`${ApiPaths.GetContract}/${route.query.contractId}`)
