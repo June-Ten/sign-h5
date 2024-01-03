@@ -82,7 +82,11 @@
   </div>
 
   <div class="page-container" v-if="current === 2">
-    <Code  @change-current="2" />
+    <Code  @change-current="current = 3" />
+  </div>
+
+  <div class="page-container" v-if="current === 3">
+    <Success />
   </div>
 </template>
 
@@ -94,11 +98,12 @@ import Pdfh5 from 'pdfh5'
 
 import Auth from './components/Auth.vue'
 import Code from './components/Code.vue'
+import Success from './components/Success.vue'
 import request from './utils/request'
 import { setAuthToken } from './utils/auth'
 import { ApiPaths } from './api/endPoints'
 
-const current = ref<number>(1)
+const current = ref<number>(3)
 
 const pdfBox = ref<HTMLElement>()
 

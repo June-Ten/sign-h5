@@ -25,12 +25,16 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
+
+const emits = defineEmits(['changeCurrent'])
+
 const value = ref<string>('')
 const showKeyboard = ref<boolean>(false)
 
 watch(value, (val) => {
   if (val.length === 6) {
     console.log('输入完毕')
+    emits('changeCurrent')
   }
 })
 </script>
