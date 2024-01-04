@@ -1,7 +1,7 @@
 <template>
   <div class="page-container" v-if="current === 0">
 
-    <div class="pdfBox" ref="pdfBox"></div>
+    <div class="pdfBox" ref="pdfBox" v-show="!isPaging"></div>
     
     <div class="bottom-btn-box"  v-if="!showPopup">
 
@@ -26,6 +26,7 @@
     <div
       style="position: fixed;top:50%;left:50%;"
       @click="getSealPositions"
+      v-if="false"
     >
       获取印章的位置
     </div>
@@ -75,6 +76,81 @@
         </Vue3DraggableResizable>
     </Teleport>
 
+    <div class="fixed-center-btn">
+      <div class="paging-seal" v-show="!isPaging" @click="handlePaging">
+        盖骑缝章
+      </div>
+      <div class="paging-seal" v-show="isPaging" @click="pagingSuccess">
+        完成
+      </div>
+    </div>
+
+    <div
+      v-show="isPaging"
+      class="paging-box"
+      :style="{ width: `${renderSize.width}px`, height: `${renderSize.height}px`,
+                left: `${wrapperMargin.pdfViewer.left}px`, top: `${wrapperMargin.pdfViewer.top}px` }"
+    >
+      <div
+        class="img-box"
+        :style="{ width: `${renderSize.width - 100}px`, height: `${renderSize.height}px` }"
+      >
+        <img :src="homeImg">
+      </div>
+      <div class="paging-canvas">
+
+        <template
+          v-for="(_, index) in totalPage"
+          :key="index"
+        >
+          <div
+            class="paper-line"
+            v-if="index < 7"
+          ></div>
+        </template>
+        
+        <Vue3DraggableResizable
+          v-if="pagingSeal"
+          :initW="pagingSeal.initW || 120"
+          :initH="pagingSeal.initH || 120"
+          :resizable="false"
+          v-model:x="pagingSeal.x"
+          v-model:y="pagingSeal.y"
+          :draggable="true"
+          @drag-end="onDragEnd($event, pagingSeal)"
+          @drag-start="showPopover = false"
+          :ref="pagingSeal.id"
+          disabledX
+          style="z-index: 99;"
+        >
+          <van-popover
+            v-model:show="showPopover"
+            theme="dark"
+          >
+            <div
+              class="popover-slot-txt"
+              @click="onPopverSelect"
+            >
+              删除
+            </div>
+            <template #reference>
+                <div class="drag-seal-item">
+                  <img
+                    v-if="pagingSeal.type === 'P'"
+                    :src="`data:image/png;base64,${pagingSeal.sealImg}`"
+                    alt="个人印章"
+                    :style="`width: ${pagingSeal.initW}px; height: ${pagingSeal.initH}px`"
+                  >
+                </div>
+              </template>
+          </van-popover>
+        </Vue3DraggableResizable>
+          
+
+        <div class="paging-txt">签名区</div>
+      </div>
+    </div>
+
   </div>
 
   <div class="page-container" v-if="current === 1">
@@ -103,7 +179,9 @@ import request from './utils/request'
 import { setAuthToken } from './utils/auth'
 import { ApiPaths } from './api/endPoints'
 
-const current = ref<number>(3)
+const current = ref<number>(0)
+
+const isPaging =ref<boolean>(false)
 
 const pdfBox = ref<HTMLElement>()
 
@@ -129,6 +207,8 @@ onMounted(async () => {
 
 const sealList = reactive<any>([])
 
+const pagingSeal = ref<any>(null)
+
 async function getUrlQuery() {
   await router.isReady()
 
@@ -138,7 +218,7 @@ async function getUrlQuery() {
     const pdfRes: any = await request.get(`${ApiPaths.GetContract}/${route.query.contractId}`)
   
     let pdfh5 = new Pdfh5(pdfBox.value, {
-      // pdfurl: "./123.pdf",
+      // pdfurl: "./git.pdf",
       data: atob(pdfRes.urlBase64),
       backTop: false,
       scale: 1.0,
@@ -233,19 +313,21 @@ const windowWidth = window.innerWidth
 const windowHeight = window.innerHeight
 
 function onDragEnd(e: any, item: Position) {
-  if (e.x < wrapperMargin.pdfViewer.left) {
-    item.x = wrapperMargin.pdfViewer.left
-  }
-  if (e.x > windowWidth - wrapperMargin.pdfViewer.left - item.initW) {
-    item.x = windowWidth - wrapperMargin.pdfViewer.left - item.initW
-  }
-  if (e.y < wrapperMargin.pdfViewer.top) {
-    item.y = wrapperMargin.pdfViewer.top
-  }
-  if (e.y > document.querySelector('.viewerContainer')!.scrollTop + 
-            windowHeight - wrapperMargin.pdfViewer.top - item.initH - item.initH / 2) {
-    item.y = document.querySelector('.viewerContainer')!.scrollTop + 
-            windowHeight - wrapperMargin.pdfViewer.top - item.initH - item.initH / 2
+  if (!isPaging.value) {
+    if (e.x < wrapperMargin.pdfViewer.left) {
+      item.x = wrapperMargin.pdfViewer.left
+    }
+    if (e.x > windowWidth - wrapperMargin.pdfViewer.left - item.initW) {
+      item.x = windowWidth - wrapperMargin.pdfViewer.left - item.initW
+    }
+    if (e.y < wrapperMargin.pdfViewer.top) {
+      item.y = wrapperMargin.pdfViewer.top
+    }
+    if (e.y > document.querySelector('.viewerContainer')!.scrollTop + 
+              windowHeight - wrapperMargin.pdfViewer.top - item.initH - item.initH / 2) {
+      item.y = document.querySelector('.viewerContainer')!.scrollTop + 
+              windowHeight - wrapperMargin.pdfViewer.top - item.initH - item.initH / 2
+    }
   }
 }
 
@@ -268,16 +350,30 @@ function getWindowCenterPosition() {
 function generateSeal({ x, y }: { x: number; y: number; }, type: string, sealImg: string): void {
   const container = document.querySelector('.viewerContainer')!
 
-  if (type === 'P') {
-    dragPositionList.push({
-      x,
-      y: container.scrollTop + y,
+  if (!isPaging) {
+    if (type === 'P') {
+      dragPositionList.push({
+        x,
+        y: container.scrollTop + y,
+        id: `seal-${dragPositionList.length + 1}`,
+        initW: 50 * ratio.wRatio,
+        initH: 50 * ratio.hRatio,
+        type: 'P',
+        sealImg
+      })
+    }
+  }
+
+  if (isPaging) {
+    pagingSeal.value = {
+      x: 40,
+      y: 10,
       id: `seal-${dragPositionList.length + 1}`,
       initW: 50 * ratio.wRatio,
       initH: 50 * ratio.hRatio,
       type: 'P',
       sealImg
-    })
+    }
   }
 }
 
@@ -332,6 +428,51 @@ async function submitSign() {
   console.log('res', res)
 }
 
+function handlePaging() {
+  isPaging.value = true
+  homeImg.value = getCroppedImageBase64()
+}
+
+function pagingSuccess() {
+  isPaging.value = false
+}
+
+const homeImg = ref<string>('')
+
+function getCroppedImageBase64() {
+  const originalImageElement = document.querySelector('.pageContainer1 img') as HTMLElement
+
+  const croppedCanvas = document.createElement('canvas')
+  croppedCanvas.width = fileIntrinsicSize.width
+  croppedCanvas.height = fileIntrinsicSize.height
+  const ctx = croppedCanvas.getContext('2d')!
+
+  ctx.clearRect(0, 0, croppedCanvas.width, croppedCanvas.height)
+  ctx.drawImage(
+    originalImageElement as CanvasImageSource,
+    100 / ratio.wRatio,
+    0,
+
+    fileIntrinsicSize.width - (100 / ratio.wRatio),
+    fileIntrinsicSize.height,
+
+    0,
+    0,
+
+    fileIntrinsicSize.width,
+    fileIntrinsicSize.height
+  )
+
+  return croppedCanvas.toDataURL('image/png')
+}
+
+const showPopover = ref<boolean>(false)
+
+const onPopverSelect = () => {
+    showPopover.value = false
+    pagingSeal.value = null
+}
+
 </script>
 
 <style scoped lang="less">
@@ -340,6 +481,14 @@ async function submitSign() {
 }
 ::-webkit-scrollbar {
   display: none;
+}
+.popover-slot-txt {
+  width: 40px;
+  height: 20px;
+  font-size: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 .page-container {
   width: 100%;
@@ -408,6 +557,67 @@ async function submitSign() {
     align-items: center;
     width: 100%;
     height: 100%;
+  }
+  .fixed-center-btn {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    color: #409EFF;
+    background-color: #fff;
+    font-size: 12px;
+    display: flex;
+    width: 30px;
+    height: 70px;
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+    box-shadow: 1px 0px 3px #808080;
+    overflow: hidden;
+    letter-spacing: 2px;
+    z-index: 999;
+    .paging-seal {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  }
+  .paging-box {
+    position: fixed;
+    display: flex;
+    box-shadow: darkgrey 0px 1px 3px 0px;
+    .img-box {
+      img {
+        width: 100%;
+        height: 100%;
+      }
+    }
+    .paging-canvas {
+      width: 100px;
+      height: 100%;
+      border: 1px dashed #409EFF;
+      display: flex;
+      position: relative;
+      .paper-line {
+        flex: 1;
+        background-color: #fff;
+        // box-shadow: darkgrey 0px 1px 3px 0px;
+        box-shadow: inset #f0f0f0 2px -1px 3px 0px;;
+      }
+      .paging-txt {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        writing-mode: vertical-rl;
+        text-orientation: upright;
+        color: #ccc;
+        font-size: 20px;
+        letter-spacing: 5px;
+      }
+    }
   }
 }
 </style>

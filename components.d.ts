@@ -13,8 +13,10 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     Success: typeof import('./src/components/Success.vue')['default']
+    VanButton: typeof import('vant/es')['Button']
     VanNumberKeyboard: typeof import('vant/es')['NumberKeyboard']
     VanPasswordInput: typeof import('vant/es')['PasswordInput']
+    VanPopover: typeof import('vant/es')['Popover']
     VanPopup: typeof import('vant/es')['Popup']
   }
 }
