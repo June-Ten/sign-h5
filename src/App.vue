@@ -1,5 +1,13 @@
 <template>
   <div class="page-container" v-if="current === 0">
+    <van-loading
+      size="24px"
+      vertical
+      style="position: fixed;top:50%;left:50%;transform: translate(-50%, 50%);"
+      v-if="initLoading"
+    >
+      加载中...
+    </van-loading>
 
     <div class="pdfBox" ref="pdfBox" v-show="!isPaging"></div>
     
@@ -181,6 +189,8 @@ import { ApiPaths } from './api/endPoints'
 
 const current = ref<number>(0)
 
+const initLoading = ref<boolean>(true)
+
 const isPaging =ref<boolean>(false)
 
 const pdfBox = ref<HTMLElement>()
@@ -239,6 +249,8 @@ async function getUrlQuery() {
     sealList.splice(0, sealList.length, ...sealListRes)
   } catch (e) {
     console.log('onMounted-error', e)
+  } finally {
+    initLoading.value = false
   }
 }
 
@@ -350,7 +362,7 @@ function getWindowCenterPosition() {
 function generateSeal({ x, y }: { x: number; y: number; }, type: string, sealImg: string): void {
   const container = document.querySelector('.viewerContainer')!
 
-  if (!isPaging) {
+  if (!isPaging.value) {
     if (type === 'P') {
       dragPositionList.push({
         x,
@@ -364,7 +376,7 @@ function generateSeal({ x, y }: { x: number; y: number; }, type: string, sealImg
     }
   }
 
-  if (isPaging) {
+  if (isPaging.value) {
     pagingSeal.value = {
       x: 40,
       y: 10,

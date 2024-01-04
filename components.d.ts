@@ -14,6 +14,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     Success: typeof import('./src/components/Success.vue')['default']
     VanButton: typeof import('vant/es')['Button']
+    VanLoading: typeof import('vant/es')['Loading']
     VanNumberKeyboard: typeof import('vant/es')['NumberKeyboard']
     VanPasswordInput: typeof import('vant/es')['PasswordInput']
     VanPopover: typeof import('vant/es')['Popover']
