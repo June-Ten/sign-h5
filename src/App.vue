@@ -16,15 +16,23 @@
       <div
         class="anywhere-btn"
         @click="show"
-        v-if="!showPopup && dragPositionList.length === 0"
+        v-if="!showPopup && dragPositionList.length === 0 && pagingSealList.length === 0"
       >
         任意位置盖章
       </div>
 
       <div
+        class="continue-stamp-btn"
+        @click="show"
+        v-if="!showPopup && (dragPositionList.length > 0 || pagingSealList.length > 0)"
+      >
+        <img src="./assets/stamp.svg" alt="">
+        继续盖章
+      </div>
+      <div
         class="anywhere-btn"
         @click="submitSign"
-        v-if="!showPopup && dragPositionList.length > 0"
+        v-if="!showPopup && (dragPositionList.length > 0 || pagingSealList.length > 0)"
       >
         提交签署
       </div>
@@ -62,26 +70,42 @@
 
     <Teleport to=".viewerContainer" v-if="dragPositionList.length">
       <Vue3DraggableResizable
-          v-for="item in dragPositionList"
-          :key="item.id"
-          :initW="item.initW || 120"
-          :initH="item.initH || 120"
-          :resizable="false"
-          v-model:x="item.x"
-          v-model:y="item.y"
-          :draggable="true"
-          @drag-end="onDragEnd($event, item)"
-          :ref="item.id"
+        v-for="item in dragPositionList"
+        :key="item.id"
+        :initW="item.initW || 120"
+        :initH="item.initH || 120"
+        :resizable="false"
+        v-model:x="item.x"
+        v-model:y="item.y"
+        v-model:w="item.initW"
+        v-model:h="item.initH"
+        :draggable="true"
+        @drag-end="onDragEnd($event, item)"
+        @drag-start="showPopover = false"
+        :ref="item.id"
+      >
+        <van-popover
+          v-model:show="showPopover"
+          theme="dark"
         >
-          <div class="drag-seal-item">
-            <img
-              v-if="item.type === 'P'"
-              :src="`data:image/png;base64,${item.sealImg}`"
-              alt="个人印章"
-              :style="`width: ${item.initW}px; height: ${item.initH}px`"
-            >
+          <div
+            class="popover-slot-txt"
+            @click="dragPositionList.splice(dragPositionList.findIndex(i => i.id === item.id), 1)"
+          >
+            删除
           </div>
-        </Vue3DraggableResizable>
+          <template #reference>
+            <div class="drag-seal-item">
+              <img
+                v-if="item.type === 'P'"
+                :src="`data:image/png;base64,${item.sealImg}`"
+                alt="个人印章"
+                :style="`width: ${item.w}px; height: ${item.h}px`"
+              >
+            </div>
+          </template>
+        </van-popover>
+      </Vue3DraggableResizable>
     </Teleport>
 
     <div class="fixed-center-btn">
@@ -118,17 +142,19 @@
         </template>
         
         <Vue3DraggableResizable
-          v-if="pagingSeal"
-          :initW="pagingSeal.initW || 120"
-          :initH="pagingSeal.initH || 120"
+          v-for="item in pagingSealList"
+          :initW="item.initW || 120"
+          :initH="item.initH || 120"
           :resizable="false"
-          v-model:x="pagingSeal.x"
-          v-model:y="pagingSeal.y"
+          v-model:x="item.x"
+          v-model:y="item.y"
+          v-model:w="item.initW"
+          v-model:h="item.initH"
           :draggable="true"
-          @drag-end="onDragEnd($event, pagingSeal)"
           @drag-start="showPopover = false"
-          :ref="pagingSeal.id"
+          :ref="`${item.id}-paging}`"
           disabledX
+          :parent="true"
           style="z-index: 99;"
         >
           <van-popover
@@ -142,15 +168,15 @@
               删除
             </div>
             <template #reference>
-                <div class="drag-seal-item">
-                  <img
-                    v-if="pagingSeal.type === 'P'"
-                    :src="`data:image/png;base64,${pagingSeal.sealImg}`"
-                    alt="个人印章"
-                    :style="`width: ${pagingSeal.initW}px; height: ${pagingSeal.initH}px`"
-                  >
-                </div>
-              </template>
+              <div class="drag-seal-item">
+                <img
+                  v-if="item.type === 'P'"
+                  :src="`data:image/png;base64,${item.sealImg}`"
+                  alt="个人印章"
+                  :style="`width: ${item.w}px; height: ${item.h}px`"
+                >
+              </div>
+            </template>
           </van-popover>
         </Vue3DraggableResizable>
           
@@ -197,6 +223,13 @@ const pdfBox = ref<HTMLElement>()
 
 const totalPage = ref<number>(0)
 
+const personSeal = {
+  initW: 50,
+  initH: 50
+}
+
+const eachPageHeight = ref<number>(500)
+
 const route = useRoute()
 const router = useRouter()
 
@@ -217,7 +250,7 @@ onMounted(async () => {
 
 const sealList = reactive<any>([])
 
-const pagingSeal = ref<any>(null)
+const pagingSealList = reactive<any[]>([])
 
 async function getUrlQuery() {
   await router.isReady()
@@ -228,7 +261,7 @@ async function getUrlQuery() {
     const pdfRes: any = await request.get(`${ApiPaths.GetContract}/${route.query.contractId}`)
   
     let pdfh5 = new Pdfh5(pdfBox.value, {
-      // pdfurl: "./git.pdf",
+      // pdfurl: "./456.pdf",
       data: atob(pdfRes.urlBase64),
       backTop: false,
       scale: 1.0,
@@ -247,6 +280,7 @@ async function getUrlQuery() {
   
     const sealListRes: any = await request.get(ApiPaths.SealList)
     sealList.splice(0, sealList.length, ...sealListRes)
+    eachPageHeight.value = document.querySelector('.pageContainer')!.clientHeight
   } catch (e) {
     console.log('onMounted-error', e)
   } finally {
@@ -289,10 +323,11 @@ function getRatio() {
 const wrapperMargin = reactive({
   pdfViewer: {
     top: 10,
+    bottom: 10,
     left: 10
   },
   pageContainer: {
-    marginBottom: 10
+    marginBottom: 8
   }
 })
 
@@ -300,6 +335,7 @@ function getWrapperMargin() {
   const pdfViewer = document.querySelector('.pdfViewer')! as HTMLElement
   const pageContainer = document.querySelector('.pageContainer')! as HTMLElement
   wrapperMargin.pdfViewer.top = parseFloat(window.getComputedStyle(pdfViewer).paddingTop)
+  wrapperMargin.pdfViewer.bottom = parseFloat(window.getComputedStyle(pdfViewer).paddingBottom)
   wrapperMargin.pdfViewer.left = parseFloat(window.getComputedStyle(pdfViewer).paddingLeft)
   wrapperMargin.pageContainer.marginBottom = parseFloat(window.getComputedStyle(pageContainer).marginBottom)
 }
@@ -316,29 +352,31 @@ type Position = {
   id: string
   initW: number
   initH: number
+  w: number
+  h: number
   type: string
   sealImg: string
 }
 const dragPositionList = reactive<Position[]>([])
 
 const windowWidth = window.innerWidth
-const windowHeight = window.innerHeight
+// const windowHeight = window.innerHeight
 
 function onDragEnd(e: any, item: Position) {
   if (!isPaging.value) {
     if (e.x < wrapperMargin.pdfViewer.left) {
       item.x = wrapperMargin.pdfViewer.left
     }
-    if (e.x > windowWidth - wrapperMargin.pdfViewer.left - item.initW) {
-      item.x = windowWidth - wrapperMargin.pdfViewer.left - item.initW
+    if (e.x > windowWidth - wrapperMargin.pdfViewer.left - item.w) {
+      item.x = windowWidth - wrapperMargin.pdfViewer.left - item.w
     }
     if (e.y < wrapperMargin.pdfViewer.top) {
       item.y = wrapperMargin.pdfViewer.top
     }
-    if (e.y > document.querySelector('.viewerContainer')!.scrollTop + 
-              windowHeight - wrapperMargin.pdfViewer.top - item.initH - item.initH / 2) {
-      item.y = document.querySelector('.viewerContainer')!.scrollTop + 
-              windowHeight - wrapperMargin.pdfViewer.top - item.initH - item.initH / 2
+    if (e.y + item.h > document.querySelector('.pdfViewer')!.clientHeight -
+        (wrapperMargin.pdfViewer.bottom + wrapperMargin.pageContainer.marginBottom)) {
+      item.y = document.querySelector('.pdfViewer')!.clientHeight -
+      (item.h + wrapperMargin.pdfViewer.bottom + wrapperMargin.pageContainer.marginBottom)
     }
   }
 }
@@ -346,7 +384,6 @@ function onDragEnd(e: any, item: Position) {
 function addSeal(item: any, type: string) {
   showPopup.value = false
   generateSeal(getWindowCenterPosition(), type, item.sealImageBase64)
-  console.log('addSeal', item)
 }
 
 function getWindowCenterPosition() {
@@ -364,12 +401,15 @@ function generateSeal({ x, y }: { x: number; y: number; }, type: string, sealImg
 
   if (!isPaging.value) {
     if (type === 'P') {
+      dragPositionList.splice(0, dragPositionList.length)
       dragPositionList.push({
         x,
         y: container.scrollTop + y,
         id: `seal-${dragPositionList.length + 1}`,
-        initW: 50 * ratio.wRatio,
-        initH: 50 * ratio.hRatio,
+        initW: personSeal.initW * ratio.wRatio,
+        initH: personSeal.initH * ratio.hRatio,
+        w: personSeal.initW * ratio.wRatio,
+        h: personSeal.initH * ratio.hRatio,
         type: 'P',
         sealImg
       })
@@ -377,41 +417,54 @@ function generateSeal({ x, y }: { x: number; y: number; }, type: string, sealImg
   }
 
   if (isPaging.value) {
-    pagingSeal.value = {
+    pagingSealList.splice(0, pagingSealList.length)
+    pagingSealList.push({
       x: 40,
       y: 10,
       id: `seal-${dragPositionList.length + 1}`,
-      initW: 50 * ratio.wRatio,
-      initH: 50 * ratio.hRatio,
+      initW: personSeal.initW * ratio.wRatio,
+      initH: personSeal.initH * ratio.hRatio,
+      w: personSeal.initW * ratio.wRatio,
+      h: personSeal.initH * ratio.hRatio,
       type: 'P',
       sealImg
-    }
+    })
   }
 }
 
 function getSealPositions() {
-  const eachPageHeight = document.querySelector('.pageContainer')!.clientHeight
   const resultList: any[] = []
   dragPositionList.forEach(item => {
-      console.log('eachPageHeight', eachPageHeight)
-
-      const currentPage = Math.floor(item.y / eachPageHeight) + 1
+      const currentPage = Math.floor((item.y - wrapperMargin.pdfViewer.top) /
+      (eachPageHeight.value + wrapperMargin.pageContainer.marginBottom)) + 1
       resultList.push({
         ...item,
         page: currentPage,
         X: (item.x - wrapperMargin.pdfViewer.left) / ratio.wRatio,
-        Y: getRawY(item, currentPage, eachPageHeight)
+        Y: getRawY(item, currentPage, eachPageHeight.value)
       })
   })
-  console.log('resultList', resultList)
-  return resultList[0]
+
+  const pagingResList: any[] = []
+  pagingSealList.forEach(item => {
+    pagingResList.push({
+      ...item,
+      X: (item.x - wrapperMargin.pdfViewer.left) / ratio.wRatio,
+      Y: (eachPageHeight.value - item.y - item.h) / ratio.hRatio
+    })
+  })
+  
+  return { 
+    stamp: resultList[0],
+    paging: pagingResList[0]
+  }
 }
 
 function getRawY(item: Position, currentPage: number, eachPageHeight: number) {
-  console.log('eachPageHeight', eachPageHeight)
+  console.log('item', item)
   const currentY = eachPageHeight -
-  (item.y - wrapperMargin.pdfViewer.top - ((currentPage - 1) * eachPageHeight)
-    - wrapperMargin.pageContainer.marginBottom * (currentPage - 1) + item.initH)
+  (item.y  + item.h - wrapperMargin.pdfViewer.top - 
+  ((currentPage - 1) * (eachPageHeight + wrapperMargin.pageContainer.marginBottom)))
   return currentY / ratio.hRatio
 }
 
@@ -426,6 +479,9 @@ function postMsgToUniApp(obj: any) {
 
 async function submitSign() {
   const sealInfo = getSealPositions()
+
+  console.log('sealInfo', sealInfo)
+  return
 
   const res = await request.post(ApiPaths.SignContract, {
     contractId: route.query.contractId,
@@ -482,7 +538,7 @@ const showPopover = ref<boolean>(false)
 
 const onPopverSelect = () => {
     showPopover.value = false
-    pagingSeal.value = null
+    pagingSealList.splice(0, pagingSealList.length)
 }
 
 </script>
@@ -532,6 +588,19 @@ const onPopverSelect = () => {
       color: #fff;
       background-color: #409eff;
       border-radius: 10px;
+    }
+    .continue-stamp-btn {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 20px;
+      img {
+        width: 15px;
+        height: 15px;
+      }
     }
   }
   .van-popup-body {

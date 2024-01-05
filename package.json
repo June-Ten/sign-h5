@@ -42,6 +42,7 @@
   "devDependencies": {
     "@types/axios": "^0.14.0",
     "@types/node": "^20.10.5",
+    "@types/vue": "^2.0.0",
     "@vant/auto-import-resolver": "^1.0.2",
     "@vitejs/plugin-vue": "^4.2.3",
     "cjs2esmodule": "^1.1.1",
