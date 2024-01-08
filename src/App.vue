@@ -192,11 +192,11 @@
   </div>
 
   <div class="page-container" v-if="current === 2">
-    <Code  @change-current="current = 3" />
+    <Code  @change-current="(e) => submitSign(e)"></Code>
   </div>
 
   <div class="page-container" v-if="current === 3">
-    <Success />
+    <Success @change-current="backHomePage"/>
   </div>
 </template>
 
@@ -205,6 +205,7 @@ import { ref, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import Pdfh5 from 'pdfh5'
+import { showLoadingToast, showSuccessToast, showFailToast } from 'vant'
 
 import Auth from './components/Auth.vue'
 import Code from './components/Code.vue'
@@ -262,7 +263,7 @@ async function getUrlQuery() {
   
     let pdfh5 = new Pdfh5(pdfBox.value, {
       // pdfurl: "./456.pdf",
-      data: atob(pdfRes.urlBase64),
+      data: atob(pdfRes),
       backTop: false,
       scale: 1.0,
       zoomEnable: false
@@ -383,7 +384,7 @@ function onDragEnd(e: any, item: Position) {
 
 function addSeal(item: any, type: string) {
   showPopup.value = false
-  generateSeal(getWindowCenterPosition(), type, item.sealImageBase64)
+  generateSeal(getWindowCenterPosition(), type, item)
 }
 
 function getWindowCenterPosition() {
@@ -396,7 +397,7 @@ function getWindowCenterPosition() {
   return centerPosition
 }
 
-function generateSeal({ x, y }: { x: number; y: number; }, type: string, sealImg: string): void {
+function generateSeal({ x, y }: { x: number; y: number; }, type: string, item: any): void {
   const container = document.querySelector('.viewerContainer')!
 
   if (!isPaging.value) {
@@ -405,13 +406,13 @@ function generateSeal({ x, y }: { x: number; y: number; }, type: string, sealImg
       dragPositionList.push({
         x,
         y: container.scrollTop + y,
-        id: `seal-${dragPositionList.length + 1}`,
+        id: item.id,
         initW: personSeal.initW * ratio.wRatio,
         initH: personSeal.initH * ratio.hRatio,
         w: personSeal.initW * ratio.wRatio,
         h: personSeal.initH * ratio.hRatio,
         type: 'P',
-        sealImg
+        sealImg: item.sealImageBase64
       })
     }
   }
@@ -421,13 +422,13 @@ function generateSeal({ x, y }: { x: number; y: number; }, type: string, sealImg
     pagingSealList.push({
       x: 40,
       y: 10,
-      id: `seal-${dragPositionList.length + 1}`,
+      id: item.id,
       initW: personSeal.initW * ratio.wRatio,
       initH: personSeal.initH * ratio.hRatio,
       w: personSeal.initW * ratio.wRatio,
       h: personSeal.initH * ratio.hRatio,
       type: 'P',
-      sealImg
+      sealImg: item.sealImageBase64
     })
   }
 }
@@ -449,7 +450,7 @@ function getSealPositions() {
   pagingSealList.forEach(item => {
     pagingResList.push({
       ...item,
-      X: (item.x - wrapperMargin.pdfViewer.left) / ratio.wRatio,
+      X: fileIntrinsicSize.width - (item.w / ratio.wRatio / totalPage.value),
       Y: (eachPageHeight.value - item.y - item.h) / ratio.hRatio
     })
   })
@@ -461,7 +462,6 @@ function getSealPositions() {
 }
 
 function getRawY(item: Position, currentPage: number, eachPageHeight: number) {
-  console.log('item', item)
   const currentY = eachPageHeight -
   (item.y  + item.h - wrapperMargin.pdfViewer.top - 
   ((currentPage - 1) * (eachPageHeight + wrapperMargin.pageContainer.marginBottom)))
@@ -477,23 +477,61 @@ function postMsgToUniApp(obj: any) {
   })
 }
 
-async function submitSign() {
-  const sealInfo = getSealPositions()
+async function submitSign(code?: string) {
+  if (current.value === 0 ) {
+    current.value = 1
+    return
+  }
 
-  console.log('sealInfo', sealInfo)
-  return
+  if (current.value === 2 && code?.length === 6) {
+    showLoadingToast({
+      message: '签署中...',
+      forbidClick: true,
+      duration: 0
+    })
 
-  const res = await request.post(ApiPaths.SignContract, {
-    contractId: route.query.contractId,
-    sealId: sealList.at(Number(sealInfo.id.split('seal-')[1]) - 1).id,
-    type: sealInfo.type === 'P' ? 0 : 1,
-    pageNum: sealInfo.page,
-    x: sealInfo.X,
-    y: sealInfo.Y,
-    width: 50,
-    height: 50
-  })
-  console.log('res', res)
+    try {
+      const sealInfo = getSealPositions()
+    
+      let res = false
+      if (sealInfo?.stamp) {
+          res = await request.post(ApiPaths.SignContract, {
+          contractId: route.query.contractId,
+          sealId: sealInfo.stamp.id,
+          type: sealInfo.stamp.type === 'P' ? 0 : 1,
+          pageNum: sealInfo.stamp.page,
+          x: sealInfo.stamp.X,
+          y: sealInfo.stamp.Y,
+          width: personSeal.initW,
+          height: personSeal.initH,
+          code
+        })
+      }
+    
+      let pagingRes = false
+      if (sealInfo?.paging) {
+          pagingRes = await request.post(ApiPaths.SignPaging, {
+          contractId: route.query.contractId,
+          sealId: sealInfo.paging.id,
+          type: sealInfo.paging.type === 'P' ? 0 : 1,
+          pageNum: totalPage.value,
+          x: sealInfo.paging.X,
+          y: sealInfo.paging.Y,
+          width: personSeal.initW,
+          height: personSeal.initH,
+          code
+        })
+      }
+
+      showSuccessToast('签署成功')
+      current.value = 3
+      console.log('res', res, pagingRes)
+    } catch (error) {
+      showFailToast('签署失败')
+      console.log('submitSign-error', error)
+    }
+  }
+
 }
 
 function handlePaging() {
@@ -539,6 +577,10 @@ const showPopover = ref<boolean>(false)
 const onPopverSelect = () => {
     showPopover.value = false
     pagingSealList.splice(0, pagingSealList.length)
+}
+
+function backHomePage() {
+  uni.navigateBack()
 }
 
 </script>

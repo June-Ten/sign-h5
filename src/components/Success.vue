@@ -7,13 +7,16 @@
 
     <div class="txt">签署成功</div>
 
-    <div class="btn">返回主界面</div>
+    <div class="btn" @click="emits('changeCurrent')">返回主界面</div>
 
   </div>
 </template>
 
 <script setup lang="ts">
 import successSvg from '../assets/success.svg'
+
+const emits = defineEmits(['changeCurrent'])
+
 </script>
 
 <style lang="less" scoped>
