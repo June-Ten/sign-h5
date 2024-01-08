@@ -11,7 +11,7 @@ interface ApiResponse<T> {
 // 创建 Axios 实例
 const instance: AxiosInstance = axios.create({
   baseURL: 'https://8u059393j1.goho.co/api/',
-  timeout: 10000,
+  timeout: 50000,
 })
 
 // 请求拦截器
