@@ -477,7 +477,7 @@ function postMsgToUniApp(obj: any) {
   })
 }
 
-async function submitSign(code?: string) {
+async function submitSign(code: any) {
   if (current.value === 0 ) {
     current.value = 1
     return
@@ -580,7 +580,9 @@ const onPopverSelect = () => {
 }
 
 function backHomePage() {
-  uni.navigateBack()
+  uni.reLaunch({
+    url: '/pages/home/index'
+  })
 }
 
 </script>
