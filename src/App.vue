@@ -477,8 +477,12 @@ function postMsgToUniApp(obj: any) {
   })
 }
 
+let sealInfo = reactive<any>({})
+
 async function submitSign(code: any) {
   if (current.value === 0 ) {
+    sealInfo = {...getSealPositions()}
+    console.log('sealInfo', sealInfo)
     current.value = 1
     return
   }
@@ -491,8 +495,8 @@ async function submitSign(code: any) {
     })
 
     try {
-      const sealInfo = getSealPositions()
     
+      console.log('sealInfo', sealInfo)
       let res = false
       if (sealInfo?.stamp) {
           res = await request.post(ApiPaths.SignContract, {
