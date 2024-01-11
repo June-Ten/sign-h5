@@ -201,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import Pdfh5 from 'pdfh5'
@@ -272,16 +272,20 @@ async function getUrlQuery() {
     pdfh5.on("complete", function (status: string, msg: string, time: string) {
       console.log("状态：" + status + "，信息：" + msg + "，耗时：" + time + "毫秒，总页数：", pdfh5)
       totalPage.value = pdfh5.totalNum
-  
-      getFileIntrinsicSize()
-      getRenderSize()
-      getRatio()
-      getWrapperMargin()
+      nextTick(() => {
+        getFileIntrinsicSize()
+        getRenderSize()
+        getRatio()
+        getWrapperMargin()
+          eachPageHeight.value = document.querySelector('.pageContainer')!.clientHeight
+          console.log('eachPageHeight1', eachPageHeight.value)
+          eachPageHeight.value = eachPageHeight.value || 511
+        })
     })
   
     const sealListRes: any = await request.get(ApiPaths.SealList)
     sealList.splice(0, sealList.length, ...sealListRes)
-    eachPageHeight.value = document.querySelector('.pageContainer')!.clientHeight
+
   } catch (e) {
     console.log('onMounted-error', e)
   } finally {
@@ -436,8 +440,9 @@ function generateSeal({ x, y }: { x: number; y: number; }, type: string, item: a
 function getSealPositions() {
   const resultList: any[] = []
   dragPositionList.forEach(item => {
-      const currentPage = Math.floor((item.y - wrapperMargin.pdfViewer.top) /
-      (eachPageHeight.value + wrapperMargin.pageContainer.marginBottom)) + 1
+    console.log('item', item, 'wrapperMargin.pdfViewer.top', wrapperMargin.pdfViewer.top, 'eachPageHeight', eachPageHeight.value, 'wrapperMargin.pageContainer.marginBottom', wrapperMargin.pageContainer.marginBottom)
+      const currentPage = Math.floor((item.y - wrapperMargin.pdfViewer.top) /(eachPageHeight.value + wrapperMargin.pageContainer.marginBottom)) + 1
+      console.log('currentPage', currentPage)
       resultList.push({
         ...item,
         page: currentPage,
