@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container" v-if="current === 0">
+  <div class="page-container" v-show="current === 0">
     <van-loading
       size="24px"
       vertical
@@ -454,6 +454,8 @@ function getSealPositions() {
       Y: (eachPageHeight.value - item.y - item.h) / ratio.hRatio
     })
   })
+
+  console.log('印章', resultList, '骑缝章', pagingResList)
   
   return { 
     stamp: resultList[0],
