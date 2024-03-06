@@ -261,13 +261,13 @@ async function getUrlQuery() {
       {
         id: '1',
         sealName: '个人印章',
-        sealImgSrc: '/public/person.png',
+        sealImgSrc: '/person.png',
         type: 'P'
       },
       {
         id: '2',
         sealName: '企业印章',
-        sealImgSrc: '/public/company.png',
+        sealImgSrc: '/company.png',
         type: 'C'
       }
     ]
